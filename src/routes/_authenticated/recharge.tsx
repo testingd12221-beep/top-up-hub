@@ -56,16 +56,19 @@ function RechargePage() {
   const operators = useQuery({
     queryKey: ["operators", type],
     queryFn: () => fetchOperators({ data: { type } }),
+    retry: 0,
   });
 
   const circles = useQuery({
     queryKey: ["circles"],
     queryFn: () => fetchCircles(),
+    retry: 0,
   });
 
   const plans = useQuery({
     queryKey: ["plans", operatorId, circleId],
     queryFn: () => fetchPlans({ data: { operatorId, circleId } }),
+    retry: 0,
     enabled: Boolean(operatorId && circleId && type === "MOBILE_PREPAID"),
   });
 
