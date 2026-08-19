@@ -31,7 +31,7 @@ export async function reachpays<T>(path: string, options: RequestOptions = {}): 
     response = await fetch(url.toString(), {
       method: options.method ?? "GET",
       headers: { "X-Api-Key": apiKey, "Content-Type": "application/json" },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.body ? JSON.stringify(options.body) : null,
     });
   } catch (error) {
     console.error("ReachPays network error", error);
