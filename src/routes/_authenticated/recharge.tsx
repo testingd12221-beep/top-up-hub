@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/recharge")({
       { property: "og:description", content: "Prepaid and postpaid mobile recharge for retailers." },
     ],
   }),
-  component: RechargePage;
+  component: RechargePage,
 });
 
 type RechargeType = "MOBILE_PREPAID" | "MOBILE_POSTPAID";
