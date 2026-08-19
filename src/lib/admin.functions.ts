@@ -1,17 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const listRetailers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { assertAdmin, fetchRetailers } = await import("./admin.server");
-    await assertAdmin(context.supabase, context.userId);
+  .handler(async () => {
+    const { fetchRetailers } = await import("./admin.server");
     return fetchRetailers();
   });
 
 export const creditRetailerWallet = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -25,30 +21,25 @@ export const creditRetailerWallet = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
-    const { assertAdmin, adjustRetailerWallet } = await import("./admin.server");
-    await assertAdmin(context.supabase, context.userId);
+  .handler(async ({ data }) => {
+    const { adjustRetailerWallet } = await import("./admin.server");
     return adjustRetailerWallet(data.userId, data.amount, data.note);
   });
 
 export const setWalletStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid(), status: z.enum(["ACTIVE", "BLOCKED"]) }).parse(input),
   )
-  .handler(async ({ data, context }) => {
-    const { assertAdmin, updateWalletStatus } = await import("./admin.server");
-    await assertAdmin(context.supabase, context.userId);
+  .handler(async ({ data }) => {
+    const { updateWalletStatus } = await import("./admin.server");
     return updateWalletStatus(data.userId, data.status);
   });
 
 export const setRetailerActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid(), isActive: z.boolean() }).parse(input),
   )
-  .handler(async ({ data, context }) => {
-    const { assertAdmin, updateRetailerActive } = await import("./admin.server");
-    await assertAdmin(context.supabase, context.userId);
+  .handler(async ({ data }) => {
+    const { updateRetailerActive } = await import("./admin.server");
     return updateRetailerActive(data.userId, data.isActive);
   });

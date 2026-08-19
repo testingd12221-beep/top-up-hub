@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type ReactNode } from "react";
@@ -8,12 +8,10 @@ import {
   Receipt,
   Wallet,
   Users,
-  LogOut,
   Menu,
   Signal,
 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
 import { getMyAccount } from "@/lib/wallet.functions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,7 +26,6 @@ const navItems = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const fetchAccount = useServerFn(getMyAccount);
 
@@ -36,11 +33,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     queryKey: ["my-account"],
     queryFn: () => fetchAccount(),
   });
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate({ to: "/", replace: true });
-  };
 
   const links = [
     ...navItems,
@@ -117,9 +109,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </p>
               )}
             </div>
-            <Button variant="outline" size="icon" onClick={signOut} aria-label="Sign out">
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
         </header>
 

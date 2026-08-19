@@ -1,8 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { reachpays, ProviderError } from "./reachpays.server";
-import type { Database } from "@/integrations/supabase/types";
-
-type Client = SupabaseClient<Database>;
 
 export type Operator = { _id: string; name: string; code: string; type: string };
 export type Circle = { _id: string; name: string; code: string };
@@ -61,8 +57,6 @@ async function adjustWallet(
 }
 
 export async function initiateRecharge(
-  supabase: Client,
-  userId: string,
   input: {
     mobileNumber: string;
     amount: number;
@@ -71,10 +65,15 @@ export async function initiateRecharge(
     type: "MOBILE_PREPAID" | "MOBILE_POSTPAID";
   },
 ) {
-  const { data: wallet, error: walletError } = await supabase
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  // Use a default user ID since there is no user authentication
+  const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+  const { data: wallet, error: walletError } = await supabaseAdmin
     .from("wallets")
-    .select("balance, status")
-    .eq("user_id", userId)
+    .select("balance, status, user_id")
+    .limit(1)
     .maybeSingle();
   if (walletError) throw new ProviderError(walletError.message, 500);
   if (!wallet) throw new ProviderError("Wallet not found", 404);
@@ -82,6 +81,7 @@ export async function initiateRecharge(
   if (Number(wallet.balance) < input.amount)
     throw new ProviderError("Insufficient wallet balance", 402);
 
+  const userId = wallet.user_id ?? DEFAULT_USER_ID;
   const reference = `RCH-${Date.now()}`;
   await adjustWallet(
     userId,
@@ -90,8 +90,6 @@ export async function initiateRecharge(
     `Recharge ${input.mobileNumber}`,
     reference,
   );
-
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   let result: {
     txnId: string;
@@ -151,8 +149,10 @@ export async function refundIfNeeded(
   await adjustWallet(userId, amount, "REFUND", `Refund — recharge failed ${mobileNumber}`, txnId);
 }
 
-export async function syncTransactionStatus(supabase: Client, userId: string, txnId: string) {
-  const { data: row, error } = await supabase
+export async function syncTransactionStatus(txnId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data: row, error } = await supabaseAdmin
     .from("recharges")
     .select("*")
     .eq("txn_id", txnId)
@@ -169,7 +169,6 @@ export async function syncTransactionStatus(supabase: Client, userId: string, tx
     operatorRef?: string;
   }>(`/recharge/${encodeURIComponent(txnId)}`);
 
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: updated } = await supabaseAdmin
     .from("recharges")
     .update({
@@ -186,6 +185,5 @@ export async function syncTransactionStatus(supabase: Client, userId: string, tx
     await refundIfNeeded(row.user_id, txnId, Number(row.amount), row.mobile_number);
   }
 
-  void userId;
   return updated ?? row;
 }

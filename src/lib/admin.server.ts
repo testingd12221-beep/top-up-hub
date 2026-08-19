@@ -1,17 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
-
-type Client = SupabaseClient<Database>;
-
-export async function assertAdmin(supabase: Client, userId: string) {
-  const { data, error } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden — admin access required");
-}
-
 export async function fetchRetailers() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const [profiles, wallets, recharges] = await Promise.all([

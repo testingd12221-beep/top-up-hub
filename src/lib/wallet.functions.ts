@@ -1,15 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const getMyAccount = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [profile, wallet, roles] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("wallets").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
+      supabaseAdmin.from("profiles").select("*").limit(1).maybeSingle(),
+      supabaseAdmin.from("wallets").select("*").limit(1).maybeSingle(),
+      supabaseAdmin.from("user_roles").select("role"),
     ]);
     return {
       profile: profile.data,
@@ -19,19 +17,17 @@ export const getMyAccount = createServerFn({ method: "GET" })
   });
 
 export const getDashboardStats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     const [wallet, recharges, recent] = await Promise.all([
-      supabase.from("wallets").select("balance, status").eq("user_id", userId).maybeSingle(),
-      supabase.from("recharges").select("amount, status, created_at").eq("user_id", userId),
-      supabase
+      supabaseAdmin.from("wallets").select("balance, status").limit(1).maybeSingle(),
+      supabaseAdmin.from("recharges").select("amount, status, created_at"),
+      supabaseAdmin
         .from("recharges")
         .select("*")
-        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
@@ -58,7 +54,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
   });
 
 export const listWalletTransactions = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -67,16 +62,16 @@ export const listWalletTransactions = createServerFn({ method: "GET" })
       })
       .parse(input ?? {}),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const from = (data.page - 1) * data.limit;
     const {
       data: items,
       count,
       error,
-    } = await context.supabase
+    } = await supabaseAdmin
       .from("wallet_transactions")
       .select("*", { count: "exact" })
-      .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .range(from, from + data.limit - 1);
     if (error) throw new Error(error.message);

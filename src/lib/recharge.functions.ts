@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const rechargeSchema = z.object({
   mobileNumber: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
@@ -11,7 +10,6 @@ const rechargeSchema = z.object({
 });
 
 export const getOperators = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: { type?: string }) => input ?? {})
   .handler(async ({ data }) => {
     const { fetchOperators } = await import("./recharge.server");
@@ -19,14 +17,12 @@ export const getOperators = createServerFn({ method: "GET" })
   });
 
 export const getCircles = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .handler(async () => {
     const { fetchCircles } = await import("./recharge.server");
     return fetchCircles();
   });
 
 export const getPlans = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: { operatorId: string; circleId: string }) =>
     z.object({ operatorId: z.string().min(1), circleId: z.string().min(1) }).parse(input),
   )
@@ -36,15 +32,13 @@ export const getPlans = createServerFn({ method: "GET" })
   });
 
 export const createRecharge = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => rechargeSchema.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const { initiateRecharge } = await import("./recharge.server");
-    return initiateRecharge(context.supabase, context.userId, data);
+    return initiateRecharge(data);
   });
 
 export const listRecharges = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
       .object({
@@ -52,19 +46,18 @@ export const listRecharges = createServerFn({ method: "GET" })
         limit: z.number().int().min(1).max(100).default(10),
         status: z.string().optional(),
         mobileNumber: z.string().optional(),
-        allUsers: z.boolean().optional(),
       })
       .parse(input ?? {}),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const from = (data.page - 1) * data.limit;
-    let query = context.supabase
+    let query = supabaseAdmin
       .from("recharges")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, from + data.limit - 1);
 
-    if (!data.allUsers) query = query.eq("user_id", context.userId);
     if (data.status) query = query.eq("status", data.status);
     if (data.mobileNumber) query = query.ilike("mobile_number", `%${data.mobileNumber}%`);
 
@@ -82,9 +75,8 @@ export const listRecharges = createServerFn({ method: "GET" })
   });
 
 export const checkTransactionStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ txnId: z.string().min(1) }).parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const { syncTransactionStatus } = await import("./recharge.server");
-    return syncTransactionStatus(context.supabase, context.userId, data.txnId);
+    return syncTransactionStatus(data.txnId);
   });
