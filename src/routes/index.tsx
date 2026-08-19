@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Signal, ShieldCheck, Wallet, Zap } from "lucide-react";
@@ -25,9 +25,6 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    redirect: typeof search["redirect"] === "string" ? (search["redirect"] as string) : undefined,
-  }),
   component: AuthPage,
 });
 
@@ -39,7 +36,6 @@ const highlights = [
 
 function AuthPage() {
   const navigate = useNavigate();
-  const search = useSearch({ from: "/" });
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -56,7 +52,9 @@ function AuthPage() {
   }, [navigate]);
 
   const goNext = () => {
-    const target = search.redirect?.startsWith("/") ? search.redirect : "/dashboard";
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("redirect");
+    const target = requested?.startsWith("/") ? requested : "/dashboard";
     window.location.href = target;
   };
 
