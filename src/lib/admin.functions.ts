@@ -16,7 +16,11 @@ export const creditRetailerWallet = createServerFn({ method: "POST" })
     z
       .object({
         userId: z.string().uuid(),
-        amount: z.number().refine((v) => v !== 0, "Amount cannot be zero").max(1000000).min(-1000000),
+        amount: z
+          .number()
+          .min(-1000000)
+          .max(1000000)
+          .refine((v) => v !== 0, "Amount cannot be zero"),
         note: z.string().max(200).optional(),
       })
       .parse(input),
