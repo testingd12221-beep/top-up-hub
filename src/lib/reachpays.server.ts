@@ -18,7 +18,7 @@ type RequestOptions = {
  * Single place where the ReachPays API is called. The API key never leaves the server.
  */
 export async function reachpays<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const apiKey = process.env["REACHPAYS_API_KEY"];
+  const apiKey = "crm_1654d468c38b7e530c4e541c3865f8dc103aa0fea63d3cf0";
   if (!apiKey) throw new ProviderError("Recharge provider is not configured", 500);
 
   const url = new URL(BASE_URL + path);

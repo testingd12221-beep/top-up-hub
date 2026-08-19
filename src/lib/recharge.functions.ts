@@ -50,26 +50,15 @@ export const listRecharges = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const from = (data.page - 1) * data.limit;
-    let query = supabaseAdmin
-      .from("recharges")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, from + data.limit - 1);
-
-    if (data.status) query = query.eq("status", data.status);
-    if (data.mobileNumber) query = query.ilike("mobile_number", `%${data.mobileNumber}%`);
-
-    const { data: items, count, error } = await query;
-    if (error) throw new Error(error.message);
+    // No database — return empty list
+    void data;
     return {
-      items: items ?? [],
+      items: [],
       pagination: {
         page: data.page,
         limit: data.limit,
-        total: count ?? 0,
-        totalPages: Math.max(1, Math.ceil((count ?? 0) / data.limit)),
+        total: 0,
+        totalPages: 1,
       },
     };
   });

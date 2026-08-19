@@ -3,8 +3,8 @@ import { z } from "zod";
 
 export const listRetailers = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { fetchRetailers } = await import("./admin.server");
-    return fetchRetailers();
+    // No database — return empty list
+    return [];
   });
 
 export const creditRetailerWallet = createServerFn({ method: "POST" })
@@ -21,25 +21,23 @@ export const creditRetailerWallet = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
-    const { adjustRetailerWallet } = await import("./admin.server");
-    return adjustRetailerWallet(data.userId, data.amount, data.note);
+  .handler(async () => {
+    // No database — wallet adjustment is not available
+    throw new Error("Wallet operations require a database connection");
   });
 
 export const setWalletStatus = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid(), status: z.enum(["ACTIVE", "BLOCKED"]) }).parse(input),
   )
-  .handler(async ({ data }) => {
-    const { updateWalletStatus } = await import("./admin.server");
-    return updateWalletStatus(data.userId, data.status);
+  .handler(async () => {
+    throw new Error("Wallet operations require a database connection");
   });
 
 export const setRetailerActive = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ userId: z.string().uuid(), isActive: z.boolean() }).parse(input),
   )
-  .handler(async ({ data }) => {
-    const { updateRetailerActive } = await import("./admin.server");
-    return updateRetailerActive(data.userId, data.isActive);
+  .handler(async () => {
+    throw new Error("Retailer operations require a database connection");
   });

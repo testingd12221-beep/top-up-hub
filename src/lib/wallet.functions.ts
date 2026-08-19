@@ -3,53 +3,36 @@ import { z } from "zod";
 
 export const getMyAccount = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [profile, wallet, roles] = await Promise.all([
-      supabaseAdmin.from("profiles").select("*").limit(1).maybeSingle(),
-      supabaseAdmin.from("wallets").select("*").limit(1).maybeSingle(),
-      supabaseAdmin.from("user_roles").select("role"),
-    ]);
+    // No database — return placeholder account data
     return {
-      profile: profile.data,
-      wallet: wallet.data,
-      isAdmin: (roles.data ?? []).some((r) => r.role === "admin"),
+      profile: {
+        id: "default",
+        full_name: "Retailer",
+        shop_name: "RechargeHub Store",
+        email: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      wallet: { balance: 0, status: "ACTIVE" },
+      isAdmin: true,
     };
   });
 
 export const getDashboardStats = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const [wallet, recharges, recent] = await Promise.all([
-      supabaseAdmin.from("wallets").select("balance, status").limit(1).maybeSingle(),
-      supabaseAdmin.from("recharges").select("amount, status, created_at"),
-      supabaseAdmin
-        .from("recharges")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
-
-    const rows = recharges.data ?? [];
-    const sum = (list: typeof rows) => list.reduce((total, r) => total + Number(r.amount), 0);
-    const success = rows.filter((r) => r.status === "SUCCESS");
-    const pending = rows.filter((r) => ["INITIATED", "PROCESSING", "PENDING"].includes(r.status));
-    const failed = rows.filter((r) => ["FAILED", "REFUNDED", "TIMEOUT"].includes(r.status));
-    const today = rows.filter((r) => new Date(r.created_at) >= startOfToday);
-
+    // No database — return empty stats
     return {
-      balance: Number(wallet.data?.balance ?? 0),
-      walletStatus: wallet.data?.status ?? "ACTIVE",
-      totalCount: rows.length,
-      successCount: success.length,
-      pendingCount: pending.length,
-      failedCount: failed.length,
-      successAmount: sum(success),
-      todayCount: today.length,
-      todayAmount: sum(today.filter((r) => r.status === "SUCCESS")),
-      recent: recent.data ?? [],
+      balance: 0,
+      walletStatus: "ACTIVE",
+      totalCount: 0,
+      successCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+      successAmount: 0,
+      todayCount: 0,
+      todayAmount: 0,
+      recent: [],
     };
   });
 
@@ -63,25 +46,14 @@ export const listWalletTransactions = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const from = (data.page - 1) * data.limit;
-    const {
-      data: items,
-      count,
-      error,
-    } = await supabaseAdmin
-      .from("wallet_transactions")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, from + data.limit - 1);
-    if (error) throw new Error(error.message);
+    // No database — return empty transaction list
     return {
-      items: items ?? [],
+      items: [],
       pagination: {
         page: data.page,
         limit: data.limit,
-        total: count ?? 0,
-        totalPages: Math.max(1, Math.ceil((count ?? 0) / data.limit)),
+        total: 0,
+        totalPages: 1,
       },
     };
   });
