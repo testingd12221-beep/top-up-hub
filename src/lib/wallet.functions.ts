@@ -3,7 +3,8 @@ import { z } from "zod";
 
 export const getMyAccount = createServerFn({ method: "GET" })
   .handler(async () => {
-    // No database — return placeholder account data
+    const { fetchWallet } = await import("./recharge.server");
+    const wallet = await fetchWallet();
     return {
       profile: {
         id: "default",
@@ -14,30 +15,61 @@ export const getMyAccount = createServerFn({ method: "GET" })
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
-      wallet: { balance: 0, status: "ACTIVE" },
+      wallet: {
+        balance: wallet.balance,
+        status: wallet.status,
+      },
       isAdmin: true,
     };
   });
 
 export const getDashboardStats = createServerFn({ method: "GET" })
   .handler(async () => {
-    // No database — return empty stats
+    const { fetchWallet, fetchRechargeHistory } = await import("./recharge.server");
+
+    const [wallet, rechargeData] = await Promise.all([
+      fetchWallet(),
+      fetchRechargeHistory({ limit: 100 }),
+    ]);
+
+    const rows = rechargeData.items ?? [];
+    const sum = (list: typeof rows) => list.reduce((total, r) => total + Number(r.amount), 0);
+    const success = rows.filter((r) => r.status === "SUCCESS");
+    const pending = rows.filter((r) => ["INITIATED", "PROCESSING", "PENDING"].includes(r.status));
+    const failed = rows.filter((r) => ["FAILED", "REFUNDED", "TIMEOUT"].includes(r.status));
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const today = rows.filter((r) => new Date(r.createdAt) >= startOfToday);
+
+    // Get last 5 recharges for "recent" list
+    const recent = rows.slice(0, 5).map((r) => ({
+      id: r.txnId,
+      txn_id: r.txnId,
+      mobile_number: r.mobileNumber,
+      amount: r.amount,
+      status: r.status,
+      operator_name: r.operator?.name ?? null,
+      type: "MOBILE_PREPAID",
+      created_at: r.createdAt,
+    }));
+
     return {
-      balance: 0,
-      walletStatus: "ACTIVE",
-      totalCount: 0,
-      successCount: 0,
-      pendingCount: 0,
-      failedCount: 0,
-      successAmount: 0,
-      todayCount: 0,
-      todayAmount: 0,
-      recent: [],
+      balance: wallet.balance,
+      walletStatus: wallet.status,
+      totalCount: rechargeData.pagination.total,
+      successCount: success.length,
+      pendingCount: pending.length,
+      failedCount: failed.length,
+      successAmount: sum(success),
+      todayCount: today.length,
+      todayAmount: sum(today.filter((r) => r.status === "SUCCESS")),
+      recent,
     };
   });
 
 export const listWalletTransactions = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         page: z.number().int().min(1).default(1),
@@ -46,14 +78,23 @@ export const listWalletTransactions = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ data }) => {
-    // No database — return empty transaction list
+    // Wallet transactions are tracked by ReachPays — use recharge history as the transaction source
+    const { fetchRechargeHistory } = await import("./recharge.server");
+    const result = await fetchRechargeHistory({ page: data.page, limit: data.limit });
+
+    const items = (result.items ?? []).map((r) => ({
+      id: r.txnId,
+      user_id: "default",
+      type: r.status === "REFUNDED" ? "REFUND" : "DEBIT",
+      amount: r.amount,
+      balance_after: 0,
+      description: `Recharge ${r.mobileNumber} — ${r.status}`,
+      reference: r.txnId,
+      created_at: r.createdAt,
+    }));
+
     return {
-      items: [],
-      pagination: {
-        page: data.page,
-        limit: data.limit,
-        total: 0,
-        totalPages: 1,
-      },
+      items,
+      pagination: result.pagination,
     };
   });

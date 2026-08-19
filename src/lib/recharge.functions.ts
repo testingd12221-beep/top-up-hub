@@ -10,7 +10,7 @@ const rechargeSchema = z.object({
 });
 
 export const getOperators = createServerFn({ method: "GET" })
-  .inputValidator((input: { type?: string }) => input ?? {})
+  .validator((input: { type?: string }) => input ?? {})
   .handler(async ({ data }) => {
     const { fetchOperators } = await import("./recharge.server");
     return fetchOperators(data.type);
@@ -23,7 +23,7 @@ export const getCircles = createServerFn({ method: "GET" })
   });
 
 export const getPlans = createServerFn({ method: "GET" })
-  .inputValidator((input: { operatorId: string; circleId: string }) =>
+  .validator((input: { operatorId: string; circleId: string }) =>
     z.object({ operatorId: z.string().min(1), circleId: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data }) => {
@@ -32,14 +32,14 @@ export const getPlans = createServerFn({ method: "GET" })
   });
 
 export const createRecharge = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => rechargeSchema.parse(input))
+  .validator((input: unknown) => rechargeSchema.parse(input))
   .handler(async ({ data }) => {
     const { initiateRecharge } = await import("./recharge.server");
     return initiateRecharge(data);
   });
 
 export const listRecharges = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         page: z.number().int().min(1).default(1),
@@ -50,21 +50,40 @@ export const listRecharges = createServerFn({ method: "GET" })
       .parse(input ?? {}),
   )
   .handler(async ({ data }) => {
-    // No database — return empty list
-    void data;
+    const { fetchRechargeHistory } = await import("./recharge.server");
+    const result = await fetchRechargeHistory({
+      page: data.page,
+      limit: data.limit,
+      status: data.status,
+      mobileNumber: data.mobileNumber,
+    });
+
+    // Map API response to match the format expected by the frontend
+    const items = (result.items ?? []).map((r) => ({
+      id: r.txnId,
+      txn_id: r.txnId,
+      user_id: "default",
+      mobile_number: r.mobileNumber,
+      amount: r.amount,
+      operator_id: "",
+      operator_name: r.operator?.name ?? null,
+      circle_id: "",
+      type: "MOBILE_PREPAID",
+      status: r.status,
+      provider_txn_id: null,
+      operator_ref: null,
+      created_at: r.createdAt,
+      updated_at: r.createdAt,
+    }));
+
     return {
-      items: [],
-      pagination: {
-        page: data.page,
-        limit: data.limit,
-        total: 0,
-        totalPages: 1,
-      },
+      items,
+      pagination: result.pagination,
     };
   });
 
 export const checkTransactionStatus = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ txnId: z.string().min(1) }).parse(input))
+  .validator((input: unknown) => z.object({ txnId: z.string().min(1) }).parse(input))
   .handler(async ({ data }) => {
     const { syncTransactionStatus } = await import("./recharge.server");
     return syncTransactionStatus(data.txnId);
